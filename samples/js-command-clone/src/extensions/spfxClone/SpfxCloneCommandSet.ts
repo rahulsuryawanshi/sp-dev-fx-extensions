@@ -9,12 +9,12 @@ import {
 
 import { SPPermission } from "@microsoft/sp-page-context";
 import { IListField } from './IListField';
-import pnp from "sp-pnp-js";
+import { sp } from "@pnp/sp";
 
 import * as strings from 'SpfxCloneCommandSetStrings';
 
 export interface ISpfxCloneCommandSetProperties {
-  //Nope
+  Lists: string;
 }
 
 const LOG_SOURCE: string = 'SpfxCloneCommandSet';
@@ -34,7 +34,7 @@ export default class SpfxCloneCommandSet
 
     //Provide PnP JS-Core with the proper context (needed in SPFx Components)
     return super.onInit().then(_ => {
-      pnp.setup({
+      sp.setup({
         spfxContext: this.context
       });
     });
@@ -46,8 +46,15 @@ export default class SpfxCloneCommandSet
     const command: Command | undefined = this.tryGetCommand("spfxClone");
 
     if (command) {
+      let allowed = true;
+
+      //If Lists is specified, the command should only show up for named lists
+      if(typeof this.properties.Lists !== "undefined" && this.properties.Lists.length > 0) {
+        let lists = this.properties.Lists.split(',');
+        allowed = lists.indexOf(this.context.pageContext.list.title) > -1;
+      }
       //Only show the command if at least 1 row is selected and the user has permission to add list items
-      command.visible = event.selectedRows.length >= 1 && this.context.pageContext.list.permissions.hasPermission(SPPermission.addListItems);
+      command.visible = event.selectedRows.length >= 1 && this.context.pageContext.list.permissions.hasPermission(SPPermission.addListItems) && allowed;
     }
   }
 
@@ -59,7 +66,7 @@ export default class SpfxCloneCommandSet
           .then((listFields: Array<IListField>): void => {
 
             // We'll request all the selected items in a single batch
-            let itemBatch: any = pnp.sp.createBatch();
+            let itemBatch: any = sp.createBatch();
 
             //Get an array of the internal field names for the select along with any necessary expand fields
             let fieldNames: Array<string> = new Array<string>();
@@ -88,7 +95,7 @@ export default class SpfxCloneCommandSet
               let itemId: number = row.getValueByName('ID');
 
               //Add the item to the batch
-              pnp.sp.web.lists.getById(this.context.pageContext.list.id.toString()).items.getById(itemId).select(...fieldNames).expand(...expansions).inBatch(itemBatch).getAs<Array<any>>()
+              sp.web.lists.getById(this.context.pageContext.list.id.toString()).items.getById(itemId).select(...fieldNames).expand(...expansions).inBatch(itemBatch).get<Array<any>>()
                 .then((result: any) => {
                   //Copy just the fields we care about and provide some adjustments for certain field types
                   let item: any = {};
@@ -136,13 +143,13 @@ export default class SpfxCloneCommandSet
             //Execute the batch
             itemBatch.execute()
               .then(() => {
-                
+
                 //We'll create all the new items in a single batch
-                let cloneBatch: any = pnp.sp.createBatch();
+                let cloneBatch: any = sp.createBatch();
 
                 //Process each item
                 items.forEach((item: any) => {
-                  pnp.sp.web.lists.getById(this.context.pageContext.list.id.toString()).items.inBatch(cloneBatch).add(item)
+                  sp.web.lists.getById(this.context.pageContext.list.id.toString()).items.inBatch(cloneBatch).add(item)
                     .catch((error: any): void => {
                       Log.error(LOG_SOURCE, error);
                       this.safeLog(error);
@@ -157,7 +164,7 @@ export default class SpfxCloneCommandSet
                     Log.error(LOG_SOURCE, error);
                     this.safeLog(error);
                   });
-                  
+
               })
               .catch((error: any): void => {
                 Log.error(LOG_SOURCE, error);
@@ -177,14 +184,14 @@ export default class SpfxCloneCommandSet
   /** Retrieves all the fields for the list */
   private ensureListSchema(): Promise<Array<IListField>> {
     return new Promise<Array<IListField>>((resolve: (listFields: Array<IListField>) => void, reject: (error: any) => void): void => {
-      
+
       if(this._listFields) {
         //Looks like we already got it, so just return that
         resolve(this._listFields);
 
       } else {
         //Go get all the fields for the list
-        pnp.sp.web.lists.getById(this.context.pageContext.list.id.toString()).fields.select('InternalName','TypeAsString','IsDependentLookup').getAs<IListField[]>()
+        sp.web.lists.getById(this.context.pageContext.list.id.toString()).fields.select('InternalName','TypeAsString','IsDependentLookup').get<IListField[]>()
           .then((results: IListField[]) => {
 
             //Setup the list fields

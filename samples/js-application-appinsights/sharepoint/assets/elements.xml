@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Elements xmlns="http://schemas.microsoft.com/sharepoint/">
-
-    <CustomAction 
-        Title="SPFxApplicationCustomizer"
+    <CustomAction
+        Title="AppInsights"
         Location="ClientSideExtension.ApplicationCustomizer"
-        ClientSideComponentId="46606aa6-5dd8-4792-b017-1555ec0a43a4"
-        ClientSideComponentProperties="{&quot;Header&quot;:&quot;Header area of the page&quot;,&quot;Footer&quot;:&quot;Footer area in the page&quot;}">
-
+        ClientSideComponentId="5e627b50-6e2b-418e-96c9-14f4a8e0507c"
+        ClientSideComponentProperties="{&quot;appInsightsKey&quot;:&quot;a09f32d3-479e-4782-b6db-1bdce04536db&quot;}">
     </CustomAction>
-
 </Elements>
